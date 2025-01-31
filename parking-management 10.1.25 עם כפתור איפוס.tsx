@@ -538,8 +538,6 @@ const ParkingManagement = () => {
   {/hello/}
 </div>
 <div className="flex flex-col gap-4 max-w-lg mx-auto">
-  {yourVariableOrFunction()}
-</div>
         <div className="bg-white p-4 rounded-lg shadow">
           <div className="flex flex-col gap-3">
             <div className="flex justify-between items-center">
