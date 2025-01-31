@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar, X, CalendarClock, AlertTriangle, Search, Trash2, Clock, Filter } from 'lucide-react';
+
 
 const ParkingManagement = () => {
   const [timeModalSpot, setTimeModalSpot] = React.useState(null);
@@ -34,10 +34,6 @@ const ParkingManagement = () => {
   };
 
   // פונקציה לקבלת המידע של תאריך ספציפי
-  const getScheduleForDate = (date) => {
-    const dateKey = formatDateKey(date);
-    return hourlySchedule[dateKey] || {};
-  };
 
   const resetToToday = () => {
     setSelectedDate(new Date());
@@ -196,7 +192,7 @@ const ParkingManagement = () => {
         localStorage.setItem('parkingSchedule', JSON.stringify(newSchedule));
       }
     }, [spot.id]);
-    const [localSchedule, setLocalSchedule] = React.useState(() => {
+  
       // אתחול המשבצות עם השם של בעל החניה
       const initialSchedule = {};
       for (let i = 7; i <= 19; i++) {
@@ -206,13 +202,7 @@ const ParkingManagement = () => {
       return initialSchedule;
     });
 
-    const getCurrentDate = () => {
-      return selectedDate.toLocaleDateString('he-IL', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-      });
-    };
+ 
 
     const timeRanges = {
       morning: Array.from({ length: 6 }, (_, i) => i + 7),      // 7-12
@@ -490,7 +480,7 @@ const ParkingManagement = () => {
     );
   };
 
-  const isSpotEmpty = (spot) => {
+  
     const dateSchedule = hourlySchedule[formatDateKey(selectedDate)] || {};
     const spotSchedule = dateSchedule[spot.id] || {};
     return Object.values(spotSchedule).every(value => !value);
