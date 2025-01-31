@@ -585,20 +585,32 @@ const ParkingManagement = () => {
             spot={timeModalSpot}
             onClose={() => setTimeModalSpot(null)}
           />
-        )}
-        
-        <div className="grid grid-cols-2 gap-4">{renderSpots(topSpots)}</div>
-        {renderBlockingSpot(blockingSpot1)}
-        <div className="grid grid-cols-3 gap-4">{renderSpots(middleSpots)}</div>
-        {renderBlockingSpot(blockingSpot2)}
-        <div className="grid grid-cols-3 gap-4">{renderSpots(nextSpots)}</div>
-        {renderBlockingSpot(blockingSpot3)}
-        <div className="grid grid-cols-3 gap-4">{renderSpots(nextRowSpots)}</div>
-        {renderBlockingSpot(blockingSpot4)}
-        <div className="grid grid-cols-3 gap-4">{renderSpots(lastRowSpots)}</div>
-        {renderBlockingSpot(blockingSpot5)}
-      </div>
+       return (
+  <div>
+    <div>
+      {/* Other code */}
     </div>
-  );
 
-export default ParkingManagement;
+    {showDatePicker && (
+      <DatePickerModal onClose={() => setShowDatePicker(false)} />
+    )}
+
+    {timeModalSpot && (
+      <TimeModal
+        spot={timeModalSpot}
+        onClose={() => setTimeModalSpot(null)}
+      />
+    )}
+
+    <div className="grid grid-cols-2 gap-4">{renderSpots(topSpots)}</div>
+    {renderBlockingSpot(blockingSpot1)}
+    <div className="grid grid-cols-3 gap-4">{renderSpots(middleSpots)}</div>
+    {renderBlockingSpot(blockingSpot2)}
+    <div className="grid grid-cols-3 gap-4">{renderSpots(nextSpots)}</div>
+    {renderBlockingSpot(blockingSpot3)}
+    <div className="grid grid-cols-3 gap-4">{renderSpots(nextRowSpots)}</div>
+    {renderBlockingSpot(blockingSpot4)}
+    <div className="grid grid-cols-3 gap-4">{renderSpots(lastRowSpots)}</div>
+    {renderBlockingSpot(blockingSpot5)}
+  </div>
+);
