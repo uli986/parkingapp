@@ -1,7 +1,7 @@
 import React from 'react';
 import { Calendar, X, CalendarClock, AlertTriangle, Search, Trash2, Clock } from 'lucide-react';
 
-// Types
+// Types and Constants
 interface ParkingSpot {
   id: string;
   name: string;
@@ -15,12 +15,11 @@ interface Schedule {
   };
 }
 
-// Config
 const WS_URL = 'wss://your-server-url.com';
 const RECONNECT_DELAY = 2000;
 const MAX_RECONNECT_ATTEMPTS = 5;
 
-// Constants - Parking Spots Data
+// Parking Spots Data
 const PARKING_SPOTS = {
   top: [
     { id: "חניה 2", name: "דורית" },
@@ -55,13 +54,255 @@ const PARKING_SPOTS = {
   ]
 };
 
-// Utility functions
 const formatDateKey = (date: Date): string => {
   return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
 };
 
+const TimeModal: React.FC<{
+  spot: ParkingSpot;
+  onClose: () => void;
+  hourlySchedule: Schedule;
+  selectedDate: Date;
+  updateScheduleData: (schedule: Schedule) => void;
+}> = ({ spot, onClose, hourlySchedule, selectedDate, updateScheduleData }) => {
+  const [editingHour, setEditingHour] = React.useState<number | null>(null);
+  const [tempName, setTempName] = React.useState('');
+  const [error, setError] = React.useState('');
+  const [localSearchTerm, setLocalSearchTerm] = React.useState('');
+  const [timeFilter, setTimeFilter] = React.useState('all');
+  const [selectedTimeRange, setSelectedTimeRange] = React.useState('all');
+
+  const dateSchedule = hourlySchedule[formatDateKey(selectedDate)] || {};
+  const spotSchedule = dateSchedule[spot.id] || {};
+
+  const getHoursToShow = React.useMemo(() => 
+    Array.from({ length: 13 }, (_, i) => i + 7)
+  , []);
+
+  const handleSave = (hour: number, name: string) => {
+    if (spot.id.startsWith("רכב חוסם")) {
+      const numberMatch = name.match(/\d+/);
+      const textWithoutNumbers = name.replace(/\d/g, '').trim();
+
+      if (!numberMatch || numberMatch[0].length < 6) {
+        setError('חובה להזין מספר טלפון עם מינימום 6 ספרות');
+        return;
+      }
+      if (textWithoutNumbers.length < 2) {
+        setError('חובה להזין שם עם מינימום 2 תווים');
+        return;
+      }
+    }
+
+    const dateKey = formatDateKey(selectedDate);
+    const newSchedule = {
+      ...hourlySchedule,
+      [dateKey]: {
+        ...(hourlySchedule[dateKey] || {}),
+        [spot.id]: {
+          ...(hourlySchedule[dateKey]?.[spot.id] || {}),
+          [hour]: name
+        }
+      }
+    };
+    updateScheduleData(newSchedule);
+    setEditingHour(null);
+    setTempName('');
+    setError('');
+  };
+
+  const handleDelete = (hour: number) => {
+    const dateKey = formatDateKey(selectedDate);
+    const newSchedule = {
+      ...hourlySchedule,
+      [dateKey]: {
+        ...(hourlySchedule[dateKey] || {}),
+        [spot.id]: {
+          ...(hourlySchedule[dateKey]?.[spot.id] || {}),
+          [hour]: ''
+        }
+      }
+    };
+    updateScheduleData(newSchedule);
+  };
+
+  return (
+    <div 
+      className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
+      <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="flex justify-between items-center mb-6 sticky top-0 bg-white pb-2 border-b">
+          <div className="flex items-center gap-4">
+            <h2 className="text-xl font-bold">{spot.id} - {spot.name}</h2>
+            <button
+              onClick={() => {
+                const emptySchedule = getHoursToShow.reduce((acc, hour) => ({
+                  ...acc,
+                  [hour]: ''
+                }), {});
+                
+                const dateKey = formatDateKey(selectedDate);
+                const newSchedule = {
+                  ...hourlySchedule,
+                  [dateKey]: {
+                    ...(hourlySchedule[dateKey] || {}),
+                    [spot.id]: emptySchedule
+                  }
+                };
+                updateScheduleData(newSchedule);
+              }}
+              className="bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              <Trash2 size={16} />
+              פנה הכל
+            </button>
+          </div>
+          <div className="flex gap-2">
+            <button 
+              onClick={onClose}
+              className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              שמור וחזור
+            </button>
+            <button 
+              onClick={() => {
+                const defaultSchedule = getHoursToShow.reduce((acc, hour) => ({
+                  ...acc,
+                  [hour]: spot.name
+                }), {});
+                
+                const dateKey = formatDateKey(selectedDate);
+                const newSchedule = {
+                  ...hourlySchedule,
+                  [dateKey]: {
+                    ...(hourlySchedule[dateKey] || {}),
+                    [spot.id]: defaultSchedule
+                  }
+                };
+                updateScheduleData(newSchedule);
+              }}
+              className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
+            >
+              איפוס
+            </button>
+          </div>
+        </div>
+
+        <div className="mb-6 space-y-4">
+          <div className="flex gap-4 items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
+              <input
+                type="text"
+                placeholder="חיפוש לפי שם..."
+                value={localSearchTerm}
+                onChange={(e) => setLocalSearchTerm(e.target.value)}
+                className="w-full pl-10 pr-4 py-2 border rounded-lg"
+              />
+            </div>
+            
+            <select
+              value={timeFilter}
+              onChange={(e) => setTimeFilter(e.target.value)}
+              className="border rounded-lg p-2"
+            >
+              <option value="all">כל השעות</option>
+              <option value="occupied">שעות תפוסות</option>
+              <option value="free">שעות פנויות</option>
+            </select>
+
+            <select
+              value={selectedTimeRange}
+              onChange={(e) => setSelectedTimeRange(e.target.value)}
+              className="border rounded-lg p-2"
+            >
+              <option value="all">כל השעות (7-19)</option>
+              <option value="morning">בוקר (7-12)</option>
+              <option value="afternoon">צהריים/ערב (13-19)</option>
+            </select>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
+          {getHoursToShow.map(hour => (
+            <div 
+              key={hour}
+              className={`p-2 rounded-lg ${spotSchedule[hour] === '' ? 'bg-green-500' : 'bg-red-500'} text-white 
+                        transition-all duration-200 text-sm`}
+            >
+              <div className="space-y-1">
+                <div className="flex justify-between items-center">
+                  <div className="font-bold flex items-center gap-1 text-xs">
+                    <Clock size={12} />
+                    {String(hour).padStart(2, '0')}:00
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(hour)}
+                    className="p-1 hover:bg-white/20 rounded cursor-pointer"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </div>
+                <div 
+                  className="p-1 rounded bg-white/10 cursor-pointer min-h-[1.5rem] flex items-center justify-center text-xs"
+                  onClick={() => {
+                    setEditingHour(hour);
+                    setTempName(spotSchedule[hour] || spot.name);
+                    setError('');
+                  }}
+                >
+                  {spotSchedule[hour] || spot.name}
+                </div>
+              </div>
+              
+              {editingHour === hour && (
+                <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center">
+                  <div className="bg-white rounded-lg p-4 w-full max-w-md" onClick={e => e.stopPropagation()}>
+                    <input
+                      type="text"
+                      value={tempName}
+                      onChange={(e) => setTempName(e.target.value)}
+                      className="w-full px-3 py-2 border rounded"
+                      placeholder="הזן שם או מספר טלפון"
+                      autoFocus
+                    />
+                    {error && (
+                      <div className="text-red-500 text-sm mt-2">{error}</div>
+                    )}
+                    <div className="flex gap-2 mt-4">
+                      <button
+                        onClick={() => handleSave(hour, tempName)}
+                        className="flex-1 bg-green-500 text-white px-4 py-2 rounded"
+                      >
+                        שמור
+                      </button>
+                      <button
+                        onClick={() => {
+                          setEditingHour(null);
+                          setTempName('');
+                          setError('');
+                        }}
+                        className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded"
+                      >
+                        ביטול
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+    </div>
+  );
+};
+
 const ParkingManagement: React.FC = () => {
-  // States
   const [timeModalSpot, setTimeModalSpot] = React.useState<ParkingSpot | null>(null);
   const [selectedDate, setSelectedDate] = React.useState<Date>(new Date());
   const [showDatePicker, setShowDatePicker] = React.useState<boolean>(false);
@@ -72,13 +313,10 @@ const ParkingManagement: React.FC = () => {
     return savedSchedule ? JSON.parse(savedSchedule) : {};
   });
 
-  // Refs
   const wsRef = React.useRef<WebSocket | null>(null);
   const reconnectTimeoutRef = React.useRef<number | null>(null);
   const reconnectAttemptsRef = React.useRef<number>(0);
 
-
-// WebSocket connection
   const connectWebSocket = React.useCallback(() => {
     if (wsRef.current?.readyState === WebSocket.OPEN) return;
 
@@ -101,7 +339,8 @@ const ParkingManagement: React.FC = () => {
           if (data.type === 'SCHEDULE_UPDATE') {
             setHourlySchedule(prevSchedule => {
               const newSchedule = {...prevSchedule, ...data.schedule};
-              localStorage.setItem('parkingSchedule', JSON.stringify(newSchedule));
+              localStorage.setItem('parkingSchedule', JSON.stringify(
+newSchedule));
               return newSchedule;
             });
           }
@@ -130,7 +369,6 @@ const ParkingManagement: React.FC = () => {
     }
   }, [selectedDate]);
 
-  // Data update handling
   const updateScheduleData = React.useCallback((newSchedule: Schedule) => {
     setHourlySchedule(prevSchedule => {
       const updatedSchedule = {...prevSchedule, ...newSchedule};
@@ -147,61 +385,6 @@ const ParkingManagement: React.FC = () => {
     });
   }, []);
 
-  // Time ranges
-  const timeRanges = React.useMemo(() => ({
-    morning: Array.from({ length: 6 }, (_, i) => i + 7),
-    afternoon: Array.from({ length: 7 }, (_, i) => i + 13)
-  }), []);
-
-  const getHoursToShow = React.useMemo(() => 
-    Array.from({ length: 13 }, (_, i) => i + 7)
-  , []);
-
-  // Event handlers
-  const handleSave = React.useCallback((spot: ParkingSpot, hour: number, tempName: string) => {
-    if (spot.id.startsWith("רכב חוסם")) {
-      const numberMatch = tempName.match(/\d+/);
-      const textWithoutNumbers = tempName.replace(/\d/g, '').trim();
-
-      if (!numberMatch || numberMatch[0].length < 6) {
-        return 'חובה להזין מספר טלפון עם מינימום 6 ספרות';
-      }
-      if (textWithoutNumbers.length < 2) {
-        return 'חובה להזין שם עם מינימום 2 תווים';
-      }
-    }
-
-    const dateKey = formatDateKey(selectedDate);
-    const newSchedule = {
-      ...hourlySchedule,
-      [dateKey]: {
-        ...(hourlySchedule[dateKey] || {}),
-        [spot.id]: {
-          ...(hourlySchedule[dateKey]?.[spot.id] || {}),
-          [hour]: tempName
-        }
-      }
-    };
-    updateScheduleData(newSchedule);
-    return null;
-  }, [hourlySchedule, selectedDate, updateScheduleData]);
-
-  const handleDelete = React.useCallback((spot: ParkingSpot, hour: number) => {
-    const dateKey = formatDateKey(selectedDate);
-    const newSchedule = {
-      ...hourlySchedule,
-      [dateKey]: {
-        ...(hourlySchedule[dateKey] || {}),
-        [spot.id]: {
-          ...(hourlySchedule[dateKey]?.[spot.id] || {}),
-          [hour]: ''
-        }
-      }
-    };
-    updateScheduleData(newSchedule);
-  }, [hourlySchedule, selectedDate, updateScheduleData]);
-
-  // Effects
   React.useEffect(() => {
     connectWebSocket();
     const timer = setTimeout(() => setShowSplash(false), 2000);
@@ -218,200 +401,6 @@ const ParkingManagement: React.FC = () => {
     };
   }, [connectWebSocket]);
 
-  // Component: TimeModal
-  const TimeModal: React.FC<{ spot: ParkingSpot; onClose: () => void }> = ({ spot, onClose }) => {
-    const [editingHour, setEditingHour] = React.useState<number | null>(null);
-    const [tempName, setTempName] = React.useState('');
-    const [error, setError] = React.useState('');
-    const [localSearchTerm, setLocalSearchTerm] = React.useState('');
-    const [timeFilter, setTimeFilter] = React.useState('all');
-    const [selectedTimeRange, setSelectedTimeRange] = React.useState('all');
-    
-    const dateSchedule = hourlySchedule[formatDateKey(selectedDate)] || {};
-    const spotSchedule = dateSchedule[spot.id] || {};
-
-    return (
-      <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center" onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}>
-        <div className="bg-white rounded-lg p-6 max-w-2xl w-full mx-4 max-h-[90vh] overflow-y-auto">
-          <div className="flex justify-between items-center mb-6 sticky top-0 bg-white pb-2 border-b">
-            <div className="flex items-center gap-4">
-              <h2 className="text-xl font-bold">{spot.id} - {spot.name}</h2>
-              <button
-                onClick={() => {
-                  const emptySchedule = getHoursToShow.reduce((acc, hour) => ({
-                    ...acc,
-                    [hour]: ''
-                  }), {});
-                  
-                  const dateKey = formatDateKey(selectedDate);
-                  const newSchedule = {
-                    ...hourlySchedule,
-                    [dateKey]: {
-                      ...(hourlySchedule[dateKey] || {}),
-                      [spot.id]: emptySchedule
-                    }
-                  };
-                  updateScheduleData(newSchedule);
-                }}
-                className="bg-green-500 hover:bg-green-600 text-white p-2 rounded-lg flex items-center gap-2 transition-colors"
-              >
-                <Trash2 size={16} />
-                פנה הכל
-              </button>
-            </div>
-            <div className="flex gap-2">
-              <button 
-                onClick={onClose}
-                className="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-              >
-                שמור וחזור
-              </button>
-              <button 
-                onClick={() => {
-                  const defaultSchedule = getHoursToShow.reduce((acc, hour) => ({
-                    ...acc,
-                    [hour]: spot.name
-                  }), {});
-                  
-                  const dateKey = formatDateKey(selectedDate);
-                  const newSchedule = {
-                    ...hourlySchedule,
-                    [dateKey]: {
-                      ...(hourlySchedule[dateKey] || {}),
-                      [spot.id]: defaultSchedule
-                    }
-                  };
-                  updateScheduleData(newSchedule);
-                }}
-                className="bg-gray-200 hover:bg-gray-300 text-gray-800 px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-              >
-                איפוס
-              </button>
-            </div>
-          </div>
-
-          <div className="mb-6 space-y-4">
-            <div className="flex gap-4 items-center">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400" size={20} />
-                <input
-                  type="text"
-                  placeholder="חיפוש לפי שם..."
-                  value={localSearchTerm}
-                  onChange={(e) => setLocalSearchTerm(e.target.value)}
-                  className="w-full pl-10 pr-4 py-2 border rounded-lg"
-                />
-              </div>
-              
-              <select
-                value={timeFilter}
-                onChange={(e) => setTimeFilter(e.target.value)}
-                className="border rounded-lg p-2"
-              >
-                <option value="all">כל השעות</option>
-                <option value="occupied">שעות תפוסות</option>
-                <option value="free">שעות פנויות</option>
-              </select>
-
-              <select
-                value={selectedTimeRange}
-                onChange={(e) => setSelectedTimeRange(e.target.value)}
-                className="border rounded-lg p-2"
-              >
-                <option value="all">כל השעות (7-19)</option>
-                <option value="morning">בוקר (7-12)</option>
-                <option value="afternoon">צהריים/ערב (13-19)</option>
-              </select>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-            {getHoursToShow.map(hour => (
-              <div 
-                key={hour}
-                className={`p-2 rounded-lg ${spotSchedule[hour] === '' ? 'bg-green-500' : 'bg-red-500'} text-white 
-                           transition-all duration-200 text-sm`}
-              >
-                <div className="space-y-1">
-                  <div className="flex justify-between items-center">
-                    <div className="font-bold flex items-center gap-1 text-xs">
-                      <Clock size={12} />
-                      {String(hour).padStart(2, '0')}:00
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => handleDelete(spot, hour)}
-                      className="p-1 hover:bg-white/20 rounded cursor-pointer"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                  <div 
-                    className="p-1 rounded bg-white/10 cursor-pointer min-h-[1.5rem] flex items-center justify-center text-xs"
-                    onClick={() => {
-                      setEditingHour(hour);
-                      setTempName(spotSchedule[hour] || spot.name);
-                      setError('');
-                    }}
-                  >
-                    {spotSchedule[hour] || spot.name}
-                  </div>
-                  {editingHour === hour && (
-                    <div className="absolute inset-0 bg-black/50 flex items-center justify-center">
-                      <div className="bg-white rounded-lg p-4 w-full max-w-md">
-                        <input
-                          type="text"
-                          value={tempName}
-                          onChange={(e) => setTempName(e.target.value)}
-                          className="w-full px-3 py-2 border rounded"
-                          placeholder="הזן שם או מספר טלפון"
-                          autoFocus
-                        />
-                        {error && (
-                          <div className="text-red-500 text-sm mt-2">{error}</div>
-                        )}
-                        <div className="flex gap-2 mt-4">
-                          <button
-                            onClick={() => {
-                              const errorMsg = handleSave(spot, hour, tempName);
-                              if (errorMsg) {
-                                setError(errorMsg);
-                              } else {
-                                setEditingHour(null);
-                                setTempName('');
-                                setError('');
-                              }
-                            }}
-                            className="flex-1 bg-green-500 text-white px-4 py-2 rounded"
-                          >
-                            שמור
-                          </button>
-                          <button
-                            onClick={() => {
-                              setEditingHour(null);
-                              setTempName('');
-                              setError('');
-                            }}
-                            className="flex-1 bg-gray-200 text-gray-800 px-4 py-2 rounded"
-                          >
-                            ביטול
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  };
-
-  // Render methods
   const renderSpots = (spots: ParkingSpot[]) => spots.map((spot) => {
     const dateSchedule = hourlySchedule[formatDateKey(selectedDate)] || {};
     const spotSchedule = dateSchedule[spot.id] || {};
@@ -443,14 +432,12 @@ const ParkingManagement: React.FC = () => {
           onClick={() => setTimeModalSpot(spot)}
         >
           <div>{spot.id}</div>
-          <div>{spot.name}</div
-
-</div>
+          <div>{spot.name}</div>
+        </div>
       </div>
     );
   };
 
-  // Main render
   if (showSplash) {
     return (
       <div className="fixed inset-0 bg-green-500 flex items-center justify-center">
@@ -554,7 +541,10 @@ const ParkingManagement: React.FC = () => {
         {timeModalSpot && (
           <TimeModal 
             spot={timeModalSpot} 
-            onClose={() => setTimeModalSpot(null)} 
+            onClose={() => setTimeModalSpot(null)}
+            hourlySchedule={hourlySchedule}
+            selectedDate={selectedDate}
+            updateScheduleData={updateScheduleData}
           />
         )}
       </div>
