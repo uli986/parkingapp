@@ -537,7 +537,7 @@ const ParkingManagement = () => {
    <div className="min-h-screen bg-gray-100 p-4" dir="rtl">
   {/hello/}
 </div>
-      <div className="flex flex-col gap-4 max-w-lg mx-auto">   {/* Your content here */} </div>
+      <div className="flex flex-col gap-4 max-w-lg mx-auto">   {hello/} </div>
         <div className="bg-white p-4 rounded-lg shadow">
           <div className="flex flex-col gap-3">
             <div className="flex justify-between items-center">
