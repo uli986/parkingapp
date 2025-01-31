@@ -600,6 +600,5 @@ const ParkingManagement = () => {
       </div>
     </div>
   );
-};
 
 export default ParkingManagement;
