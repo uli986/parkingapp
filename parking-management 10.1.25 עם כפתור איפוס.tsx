@@ -484,7 +484,7 @@ const ParkingManagement = () => {
     const dateSchedule = hourlySchedule[formatDateKey(selectedDate)] || {};
     const spotSchedule = dateSchedule[spot.id] || {};
     return Object.values(spotSchedule).every(value => !value);
-  };
+
 
   const renderSpots = (spots) => (
     spots.map((spot) => {
